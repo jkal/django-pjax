@@ -1,6 +1,8 @@
 import functools
 
 from django.views.generic.base import TemplateResponseMixin
+from django.template import TemplateSyntaxError
+from util import render_block_to_string
 
 def pjax(pjax_template=None):
     def pjax_decorator(view):
@@ -36,6 +38,26 @@ def pjaxtend(parent='base.html', pjax_parent='pjax.html', context_var='parent'):
             return resp
         return _view
     return pjaxtend_decorator
+
+def pjaxblock(pjax_block='pjax'):
+    def pjaxblock_decorator(view):
+        @functools.wraps(view)
+        def _view(request, *args, **kwargs):
+            resp = view(request, *args, **kwargs)
+            # this is lame. what else though?
+            # if not hasattr(resp, "is_rendered"):
+            #     warnings.warn("@pjax used with non-template-response view")
+            #     return resp
+            if request.META.get('HTTP_X_PJAX', False):
+                try:
+                    resp.content = render_block_to_string(resp.template_name,
+                        pjax_block, dictionary=resp.context_data)
+                except TemplateSyntaxError:
+                    pass
+            return resp
+        return _view
+    return pjaxblock_decorator
+
 
 class PJAXResponseMixin(TemplateResponseMixin):
 
